@@ -4,6 +4,21 @@ from scipy.stats import norm
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+#Calculate Delta, Theta, Gamma, Vega
+def bs_theta(cp_flag,S,K,T,r,v,q=0.0):
+#    print("bs_price args are {0} {1} {2} {3} {4} {5}".format(cp_flag, S, K, T, r, v))
+    d1 = (log(S/K)+(r+v*v/2.)*T)/(v*sqrt(T))
+    if cp_flag == 'c':
+        theta = exp(-q*T)*N(d1)
+    else:
+        theta = exp(-q*T)*(N(d1) - 1)
+    return theta
+
+def bs_gamma(S,K,T,r,v,q=0.0):
+    d1 = (log(S/K)+(r+v*v/2.)*T)/(v*sqrt(T))
+    gamma=(exp(-q*T)/(S*v*sqrt(T)))*(1/sqrt(2*pi))*(exp(pow(-d1,2)/2))
+    return gamma
+
 #Approximation of implied volatility using Newton-Raphson method
 #Alternate to using gold-seek feature in M$ Excel.
 #http://www.codeandfinance.com/finding-implied-vol.html
@@ -29,7 +44,7 @@ def find_vol(target_value, call_put, S, K, T, r):
     MAX_ITERATIONS = 100
     PRECISION = 1.0e-5
     sigma = 0.5
-    for i in xrange(0, MAX_ITERATIONS):
+    for i in range(0, MAX_ITERATIONS):
         price = bs_price(call_put, S, K, T, r, sigma)
         vega = bs_vega(call_put, S, K, T, r, sigma)
         price = price
@@ -45,8 +60,11 @@ def find_vol(target_value, call_put, S, K, T, r):
 #Set the date format found in the csv file
 date_format = "%d-%b-%y"
 
+#class myCSVReader:
+#    def(self,filename, ):
+
 #Read PUTS data
-with open('puts9000.csv', 'rb') as csvfile:
+with open('puts9000.csv', 'r') as csvfile:
      putsData = csv.reader(csvfile, delimiter=',')
      dateList = []
      expiryListPut = []
@@ -60,7 +78,7 @@ with open('puts9000.csv', 'rb') as csvfile:
           closingOptionListPut.append(closingOption)
 
 #Read CALL data
-with open('call9000.csv', 'rb') as csvfile:
+with open('call9000.csv', 'r') as csvfile:
      callData = csv.reader(csvfile, delimiter=',')
      closingOptionCallList = []
      for row in callData:
@@ -68,7 +86,7 @@ with open('call9000.csv', 'rb') as csvfile:
           closingOptionCallList.append(closingOptionCall)
 
 #Read FUTS data
-with open('futs.csv', 'rb') as csvfile:
+with open('futs.csv', 'r') as csvfile:
      futsData = csv.reader(csvfile, delimiter=',')
      closingFutList = []
      for row in futsData:
@@ -87,9 +105,24 @@ for date, expiryPut, closingOptionPut, closingOptionCall, closingFut in zip(date
      eDate = datetime.strptime(expiryPut, date_format)
      delta = eDate - sDate
      t = float(delta.days)/365.0
+
      IV_impliedVolatilityCall = find_vol(float(closingOptionCall), 'c',float(closingFut), X_strikePrice, t, r_continouslyCompoundedRiskFreeInterest/100.0)
+
      IV_impliedVolatilityPut = find_vol(float(closingOptionPut), 'p',float(closingFut), X_strikePrice, t, r_continouslyCompoundedRiskFreeInterest/100.0)
-     print('{} {} {} {} {} {:4.2f}% {:4.2f}%'.format(date, expiryPut, delta.days, closingOptionPut, closingFut, IV_impliedVolatilityCall * 100, IV_impliedVolatilityPut * 100))
+
+     thetaCall = bs_theta('c',float(closingFut), X_strikePrice,t,r_continouslyCompoundedRiskFreeInterest/100.0, IV_impliedVolatilityCall)
+
+     thetaPut = bs_theta('p',float(closingFut), X_strikePrice,t,r_continouslyCompoundedRiskFreeInterest/100.0, IV_impliedVolatilityPut)
+
+     
+     gammaCall = bs_gamma(float(closingFut), X_strikePrice,t,r_continouslyCompoundedRiskFreeInterest/100.0, IV_impliedVolatilityCall)
+
+     gammaPut = bs_gamma(float(closingFut), X_strikePrice,t,r_continouslyCompoundedRiskFreeInterest/100.0, IV_impliedVolatilityPut)
+
+     print('{} {} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(date, expiryPut,\
+      delta.days, closingOptionPut, closingFut, IV_impliedVolatilityCall * 100, \
+      IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
+
      IV_impliedVolatilityCallList.append(IV_impliedVolatilityCall * 100)
      tList.append(delta.days)
 
