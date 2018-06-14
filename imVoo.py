@@ -97,7 +97,7 @@ with open('futs.csv', 'r') as csvfile:
 
 IV_impliedVolatilityCallList = []
 tList = []
-imcCalc = imc(X_strikePrice, r_continouslyCompoundedRiskFreeInterest, q_continouslyCompoundedDividendYield)
+imcCalc = imc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
 
 for date, expiryPut, closingOptionPut, closingOptionCall, closingFut in zip(dateList, expiryListPut, closingOptionListPut, closingOptionCallList, closingFutList):
      #Calculate number of days between date and expiryPut(used to derive "t" by dividing by365)
