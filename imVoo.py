@@ -4,10 +4,6 @@ from scipy.stats import norm
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-X_strikePrice = 9000
-r_continouslyCompoundedRiskFreeInterest = 8.75/100 
-q_continouslyCompoundedDividendYield = 0.0
-
 class imc:
     n = norm.pdf
     N = norm.cdf
