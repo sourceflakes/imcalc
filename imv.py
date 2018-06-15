@@ -3,6 +3,7 @@ from math import *
 from scipy.stats import norm
 from datetime import datetime
 import matplotlib.pyplot as plt
+import pandas as pd
 
 class imc:
     n = norm.pdf
@@ -62,61 +63,55 @@ class imc:
 date_format = "%d-%b-%y"
 
 #Read PUTS data
-with open('puts9000.csv', 'r') as csvfile:
-    putsData = csv.reader(csvfile, delimiter=',')
-    dateList = []
-    expiryListPut = []
-    closingOptionListPut = []
-    for row in putsData:
-        date = row[1]
-        expiry = row[2]
-        closingOption = row[8]
-        dateList.append(date)
-        expiryListPut.append(expiry)
-        closingOptionListPut.append(closingOption)
+dfPuts = pd.read_csv("NiftyJan9000Put.csv")
+dateListPut = []
+expiryListPut = []
+closingOptionListPut = []
+for index, row in dfPuts.iterrows():
+    dateListPut.append(row['Date'])
+    expiryListPut.append(row['Expiry'])
+    closingOptionListPut.append(row['Close'])
 
 #Read CALL data
-with open('call9000.csv', 'r') as csvfile:
-     callData = csv.reader(csvfile, delimiter=',')
-     closingOptionCallList = []
-     for row in callData:
-          closingOptionCall = row[8]
-          closingOptionCallList.append(closingOptionCall)
+dfCall = pd.read_csv("Jan9000Call2017.csv")
+closingOptionCallList = []
+for index,row in dfCall.iterrows():
+    closingOptionCallList.append(row['Close'])
+   # print (row['Close'])
 
 #Read FUTS data
-with open('futs.csv', 'r') as csvfile:
-     futsData = csv.reader(csvfile, delimiter=',')
-     closingFutList = []
-     for row in futsData:
-          closingFut = row[6]
-          closingFutList.append(closingFut)
+dfFut = pd.read_csv("NiftyJanFut.csv")
+closingFutList = []
+for index,row in dfFut.iterrows():
+        closingFutList.append(row['Close'])
 
 IV_impliedVolatilityCallList = []
 tList = []
 imcCalc = imc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
 
-for date, expiryPut, closingOptionPut, closingOptionCall, closingFut in zip(dateList, expiryListPut, closingOptionListPut, closingOptionCallList, closingFutList):
+for date, expiryPut, closingOptionPut, closingOptionCall, closingFut in zip(dateListPut, expiryListPut, closingOptionListPut, closingOptionCallList, closingFutList):
      #Calculate number of days between date and expiryPut(used to derive "t" by dividing by365)
      sDate = datetime.strptime(date, date_format)
      eDate = datetime.strptime(expiryPut, date_format)
      delta = eDate - sDate
-     t = float(delta.days)/365.0
+     #t = float(delta.days)/365.0
+     t = float((datetime.strptime(expiryPut, date_format) - datetime.strptime(date, date_format)).days)/365.0
+     if t > 0:
+        IV_impliedVolatilityCall = imcCalc.find_vol(float(closingOptionCall), 'c',float(closingFut), t)
+        IV_impliedVolatilityPut = imcCalc.find_vol(float(closingOptionPut), 'p',float(closingFut), t)
 
-     IV_impliedVolatilityCall = imcCalc.find_vol(float(closingOptionCall), 'c',float(closingFut), t)
-     IV_impliedVolatilityPut = imcCalc.find_vol(float(closingOptionPut), 'p',float(closingFut), t)
+        thetaCall = imcCalc.bs_theta('c',float(closingFut), t, IV_impliedVolatilityCall)
+        thetaPut = imcCalc.bs_theta('p',float(closingFut), t, IV_impliedVolatilityPut)
 
-     thetaCall = imcCalc.bs_theta('c',float(closingFut), t, IV_impliedVolatilityCall)
-     thetaPut = imcCalc.bs_theta('p',float(closingFut), t, IV_impliedVolatilityPut)
+        gammaCall = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityCall)
+        gammaPut = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityPut)
 
-     gammaCall = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityCall)
-     gammaPut = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityPut)
+        print('{} {} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(date, expiryPut,\
+        delta.days, closingOptionPut, closingFut, IV_impliedVolatilityCall * 100, \
+        IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
 
-     print('{} {} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(date, expiryPut,\
-      delta.days, closingOptionPut, closingFut, IV_impliedVolatilityCall * 100, \
-      IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
-
-     IV_impliedVolatilityCallList.append(IV_impliedVolatilityCall * 100)
-     tList.append(delta.days)
+        IV_impliedVolatilityCallList.append(IV_impliedVolatilityCall * 100)
+        tList.append(delta.days)
 
 #Plotting
 
