@@ -1,5 +1,4 @@
-import csv
-from math import *
+from math import log, exp, sqrt, pi
 from scipy.stats import norm
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -82,9 +81,13 @@ class imvcHelper:
 
                 print('{} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(putRow['Date'], putRow['Expiry'], putRow['Close'], callRow['Close'], IV_impliedVolatilityCall * 100, IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
 
-imvCalc = imvc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
-imvGenerator = imvcHelper(putFileName = 'NiftyJan9000Put.csv',callFileName = 'Jan9000Call2017.csv', futFileName = 'NiftyJanFut.csv')
-imvGenerator.imvCalcResults(imvCalc)
+def main():
+    imvCalc = imvc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
+    imvGenerator = imvcHelper(putFileName = 'NiftyJan9000Put.csv',callFileName = 'Jan9000Call2017.csv', futFileName = 'NiftyJanFut.csv')
+    imvGenerator.imvCalcResults(imvCalc)
+
+if __name__== "__main__":
+  main()
 
 
 
