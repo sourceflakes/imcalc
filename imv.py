@@ -61,12 +61,14 @@ class imvc:
 
 class imvcHelper:
     date_format = "%d-%b-%y"
-#    def __init__(self, putCsv, futCsv, callCsv)
-    def imvCalcResults(self, putFileName, callFileName, futFileName, imcCalc):
-        dfPut = pd.read_csv(putFileName)
-        dfCall = pd.read_csv(callFileName)
-        dfFut = pd.read_csv(futFileName)
-        for (putIndex,putRow), (callIndex,callRow), (futIndex,futRow) in zip (dfPut.iterrows(), dfCall.iterrows(), dfFut.iterrows()):
+    
+    def __init__(self, putFileName, callFileName, futFileName):
+        self.dfPut = pd.read_csv(putFileName)
+        self.dfCall = pd.read_csv(callFileName)
+        self.dfFut = pd.read_csv(futFileName)
+
+    def imvCalcResults(self,  imcCalc):
+        for (putIndex,putRow), (callIndex,callRow), (futIndex,futRow) in zip (self.dfPut.iterrows(), self.dfCall.iterrows(), self.dfFut.iterrows()):
             t = float((datetime.strptime(putRow['Expiry'], self.date_format) - datetime.strptime(putRow['Date'], self.date_format)).days)/365.0
             if t > 0:
                 IV_impliedVolatilityCall = imcCalc.find_vol(float(callRow['Close']), 'c',float(futRow['Close']), t)
@@ -81,8 +83,8 @@ class imvcHelper:
                 print('{} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(putRow['Date'], putRow['Expiry'], putRow['Close'], callRow['Close'], IV_impliedVolatilityCall * 100, IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
 
 imvCalc = imvc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
-imvGenerator = imvcHelper()
-imvGenerator.imvCalcResults('NiftyJan9000Put.csv','Jan9000Call2017.csv', 'NiftyJanFut.csv', imvCalc)
+imvGenerator = imvcHelper(putFileName = 'NiftyJan9000Put.csv',callFileName = 'Jan9000Call2017.csv', futFileName = 'NiftyJanFut.csv')
+imvGenerator.imvCalcResults(imvCalc)
 
 
 
