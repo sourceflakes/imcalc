@@ -5,7 +5,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 
-class imc:
+class imvc:
     n = norm.pdf
     N = norm.cdf
     
@@ -59,66 +59,30 @@ class imc:
         # value wasn't found, return best guess so far
         return sigma
 
-#Set the date format found in the csv file
-date_format = "%d-%b-%y"
+class imvcHelper:
+    date_format = "%d-%b-%y"
+#    def __init__(self, putCsv, futCsv, callCsv)
+    def imvCalcResults(self, putFileName, callFileName, futFileName, imcCalc):
+        dfPut = pd.read_csv(putFileName)
+        dfCall = pd.read_csv(callFileName)
+        dfFut = pd.read_csv(futFileName)
+        for (putIndex,putRow), (callIndex,callRow), (futIndex,futRow) in zip (dfPut.iterrows(), dfCall.iterrows(), dfFut.iterrows()):
+            t = float((datetime.strptime(putRow['Expiry'], self.date_format) - datetime.strptime(putRow['Date'], self.date_format)).days)/365.0
+            if t > 0:
+                IV_impliedVolatilityCall = imcCalc.find_vol(float(callRow['Close']), 'c',float(futRow['Close']), t)
+                IV_impliedVolatilityPut = imcCalc.find_vol(float(putRow['Close']), 'p',float(futRow['Close']), t)
 
-#Read PUTS data
-dfPuts = pd.read_csv("NiftyJan9000Put.csv")
-dateListPut = []
-expiryListPut = []
-closingOptionListPut = []
-for index, row in dfPuts.iterrows():
-    dateListPut.append(row['Date'])
-    expiryListPut.append(row['Expiry'])
-    closingOptionListPut.append(row['Close'])
+                thetaCall = imcCalc.bs_theta('c',float(futRow['Close']), t, IV_impliedVolatilityCall)
+                thetaPut = imcCalc.bs_theta('p',float(futRow['Close']), t, IV_impliedVolatilityPut)
 
-#Read CALL data
-dfCall = pd.read_csv("Jan9000Call2017.csv")
-closingOptionCallList = []
-for index,row in dfCall.iterrows():
-    closingOptionCallList.append(row['Close'])
-   # print (row['Close'])
+                gammaCall = imcCalc.bs_gamma(float(futRow['Close']), t, IV_impliedVolatilityCall)
+                gammaPut = imcCalc.bs_gamma(float(futRow['Close']), t, IV_impliedVolatilityPut)
 
-#Read FUTS data
-dfFut = pd.read_csv("NiftyJanFut.csv")
-closingFutList = []
-for index,row in dfFut.iterrows():
-        closingFutList.append(row['Close'])
+                print('{} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(putRow['Date'], putRow['Expiry'], putRow['Close'], callRow['Close'], IV_impliedVolatilityCall * 100, IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
 
-IV_impliedVolatilityCallList = []
-tList = []
-imcCalc = imc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
-
-for date, expiryPut, closingOptionPut, closingOptionCall, closingFut in zip(dateListPut, expiryListPut, closingOptionListPut, closingOptionCallList, closingFutList):
-     #Calculate number of days between date and expiryPut(used to derive "t" by dividing by365)
-     sDate = datetime.strptime(date, date_format)
-     eDate = datetime.strptime(expiryPut, date_format)
-     delta = eDate - sDate
-     #t = float(delta.days)/365.0
-     t = float((datetime.strptime(expiryPut, date_format) - datetime.strptime(date, date_format)).days)/365.0
-     if t > 0:
-        IV_impliedVolatilityCall = imcCalc.find_vol(float(closingOptionCall), 'c',float(closingFut), t)
-        IV_impliedVolatilityPut = imcCalc.find_vol(float(closingOptionPut), 'p',float(closingFut), t)
-
-        thetaCall = imcCalc.bs_theta('c',float(closingFut), t, IV_impliedVolatilityCall)
-        thetaPut = imcCalc.bs_theta('p',float(closingFut), t, IV_impliedVolatilityPut)
-
-        gammaCall = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityCall)
-        gammaPut = imcCalc.bs_gamma(float(closingFut), t, IV_impliedVolatilityPut)
-
-        print('{} {} {} {} {} {:4.2f}% {:4.2f}% {} {} {} {}'.format(date, expiryPut,\
-        delta.days, closingOptionPut, closingFut, IV_impliedVolatilityCall * 100, \
-        IV_impliedVolatilityPut * 100, thetaCall, thetaPut, gammaCall, gammaPut))
-
-        IV_impliedVolatilityCallList.append(IV_impliedVolatilityCall * 100)
-        tList.append(delta.days)
-
-#Plotting
-
-plt.plot(tList, IV_impliedVolatilityCallList)
-plt.ylabel('Implied Volatility (%)')
-plt.xlabel('Time to expiration (in days)')
-plt.show()
+imvCalc = imvc(X_strikePrice = 9000, r_continouslyCompoundedRiskFreeInterest = 8.75/100, q_continouslyCompoundedDividendYield = 0.0)
+imvGenerator = imvcHelper()
+imvGenerator.imvCalcResults('NiftyJan9000Put.csv','Jan9000Call2017.csv', 'NiftyJanFut.csv', imvCalc)
 
 
 
