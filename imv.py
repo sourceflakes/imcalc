@@ -3,6 +3,8 @@ from scipy.stats import norm
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+import itertools
 
 class imvc:
     n = norm.pdf
@@ -13,7 +15,9 @@ class imvc:
         self.r = r_continouslyCompoundedRiskFreeInterest
         self.q = q_continouslyCompoundedDividendYield
 
-    def bs_theta(self,cp_flag,S,T,v):
+    def bs_theta(self,S,T,v,cp_flag):
+        if T <= 0.0:
+            return 0.0
         d1 = (log(S/self.K)+(self.r+v*v/2.)*T)/(v*sqrt(T))
         if cp_flag == 'c':
             theta = exp(-self.q*T)*self.N(d1)
@@ -22,6 +26,8 @@ class imvc:
         return theta
 
     def bs_gamma(self,S,T,v):
+        if T <= 0.0:
+            return 0.0
         d1 = (log(S/self.K)+(self.r+v*v/2.)*T)/(v*sqrt(T))
         gamma=(exp(-self.q*T)/(S*v*sqrt(T)))*(1/sqrt(2*pi))*(exp(pow(-d1,2)/2))
         return gamma
@@ -42,10 +48,12 @@ class imvc:
         d1 = (log(S/self.K)+(self.r+v*v/2.)*T)/(v*sqrt(T))
         return S * sqrt(T)*self.n(d1)
 
-    def find_vol(self, target_value, call_put, S, T):
+    def find_vol(self, target_value, S, T, call_put):
         MAX_ITERATIONS = 100
         PRECISION = 1.0e-5
         sigma = 0.5
+        if T <= 0.0 :
+           return 0.0
         for i in range(0, MAX_ITERATIONS):
             price = self.bs_price(call_put, S, T, sigma)
             vega = self.bs_vega(call_put, S, T, sigma)
@@ -67,6 +75,23 @@ class imvcHelper:
         self.dfFut = pd.read_csv(futFileName)
 
     def imvCalcResults(self,  imcCalc):
+        IVDFrame= pd.concat([self.dfPut['Expiry'], self.dfPut['Date'], self.dfPut['Close'], self.dfCall['Expiry'], self.dfCall['Date'], self.dfCall['Close'], self.dfFut['Close']],
+                                axis=1,keys=['PutExpiry', 'PutDate', 'PutClose', 'CallExpiry', 'CallDate', 'CallClose', 'FutClose'])
+        IVDFrame['PutExpiry'] =  pd.to_datetime(IVDFrame['PutExpiry'])
+        IVDFrame['PutDate'] = pd.to_datetime(IVDFrame['PutDate'])
+        IVDFrame['CallExpiry'] = pd.to_datetime(IVDFrame['CallExpiry'])
+        IVDFrame['CallDate'] = pd.to_datetime(IVDFrame['CallDate'])
+        IVDFrame['t'] = (IVDFrame['PutExpiry'] - IVDFrame['PutDate']) / np.timedelta64(365, 'D')
+        IVDFrame['IVPut'] = pd.DataFrame(list(map(imcCalc.find_vol, IVDFrame.PutClose, IVDFrame.FutClose, IVDFrame.t, itertools.repeat('p', IVDFrame.shape[0]))))
+        IVDFrame['IVCall'] = pd.DataFrame(list(map(imcCalc.find_vol, IVDFrame.CallClose, IVDFrame.FutClose, IVDFrame.t, itertools.repeat('c', IVDFrame.shape[0]))))
+        IVDFrame['thetaPut'] = pd.DataFrame(list(map(imcCalc.bs_theta, IVDFrame.FutClose, IVDFrame.t, IVDFrame.IVPut, itertools.repeat('p', IVDFrame.shape[0]))))
+        IVDFrame['thetaCall'] = pd.DataFrame(list(map(imcCalc.bs_theta, IVDFrame.FutClose, IVDFrame.t, IVDFrame.IVCall, itertools.repeat('c', IVDFrame.shape[0]))))
+        IVDFrame['gammaPut'] = pd.DataFrame(list(map(imcCalc.bs_gamma, IVDFrame.FutClose, IVDFrame.t, IVDFrame.IVPut)))
+        IVDFrame['gammaCall'] = pd.DataFrame(list(map(imcCalc.bs_gamma, IVDFrame.FutClose, IVDFrame.t, IVDFrame.IVCall)))
+
+
+        print (IVDFrame)
+        return
         for (putIndex,putRow), (callIndex,callRow), (futIndex,futRow) in zip (self.dfPut.iterrows(), self.dfCall.iterrows(), self.dfFut.iterrows()):
             t = float((datetime.strptime(putRow['Expiry'], self.date_format) - datetime.strptime(putRow['Date'], self.date_format)).days)/365.0
             if t > 0:
